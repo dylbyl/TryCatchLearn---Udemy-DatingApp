@@ -56,7 +56,7 @@ namespace API
             //HAS to be after Routine and before Authorization/Authentication
             //"x" can be anything
             //Uses HTTP of Angular project -- allows Angular through CORS to access API
-            app.UseCors(x => x.AllowAnyHeader().AllowAnyHeader().WithOrigins("https://localhost:4200"));
+            app.UseCors(x => x.AllowAnyHeader().AllowAnyMethod().WithOrigins("https://localhost:4200"));
 
             //Authentication must come before Authorization
             app.UseAuthentication();
