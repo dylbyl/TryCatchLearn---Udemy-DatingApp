@@ -11,7 +11,7 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 
-namespace API
+namespace API.Data
 {
     public class UserRepository : IUserRepository
     {

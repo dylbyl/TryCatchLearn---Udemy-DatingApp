@@ -22,10 +22,11 @@ namespace API.Entities
         public string Country { get; set; }
         public ICollection<Photo> Photos { get; set; }
 
-        // public int GetAge()
-        // {
-        //     return DateOfBirth.CalculateAge();
-        // }
+        //Look at UserLike.cs - a list of all users that the current user is LIKED BY (ie. the current user is the LikedUser)
+        public ICollection<UserLike> LikedByUsers { get; set; }
+
+        //Look at UserLike.cs - a list of all users that the current user has LIKED (ie. this current user is the SourceUser)
+        public ICollection<UserLike> LikedUsers { get; set; }
     }
 
 }
