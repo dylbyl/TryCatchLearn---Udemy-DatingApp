@@ -8,6 +8,7 @@ import { PaginatedResult } from '../_models/pagination';
 import { User } from '../_models/user';
 import { UserParams } from '../_models/userParams';
 import { AccountService } from './account.service';
+import { getPaginatedResult, getPaginationHeaders } from './paginationHelper';
 
 
 @Injectable({
@@ -49,7 +50,7 @@ export class MembersService {
 			return of(response);
 		}
 
-		let params = this.getPaginationHeaders(userParams.pageNumber, userParams.pageSize);
+		let params = getPaginationHeaders(userParams.pageNumber, userParams.pageSize);
 
 		params = params.append('minAge', userParams.minAge.toString());
 		params = params.append('maxAge', userParams.maxAge.toString());
@@ -64,7 +65,7 @@ export class MembersService {
 		// -- this means that, when we load a new result, we can search out map for anything with the current params (key)
 		// -- and if we have something in cache that corresponds to this key, we load it from cache instead of API
 		// -- this all works the exact same as your coin-saving system in Ginseng (only we're loading data in, instead of deleting coins)
-		return this.getPaginatedResult<Member[]>(this.baseUrl + 'users', params)
+		return getPaginatedResult<Member[]>(this.baseUrl + 'users', params, this.http)
 			.pipe(map(response => {
 				this.memberCache.set(Object.values(userParams).join('-'), response);
 				return response;
@@ -135,31 +136,8 @@ export class MembersService {
 	}
 
 	getLikes(predicate: string, pageNumber, pageSize) {
-		let params = this.getPaginationHeaders(pageNumber, pageSize);
+		let params = getPaginationHeaders(pageNumber, pageSize);
 		params = params.append('predicate', predicate);
-		return this.getPaginatedResult<Partial<Member[]>>(this.baseUrl + 'likes', params);
-	}
-
-	private getPaginatedResult<T>(url, params) {
-		const paginatedResult: PaginatedResult<T> = new PaginatedResult<T>();
-
-		return this.http.get<T>(url, { observe: 'response', params }).pipe(
-			map(response => {
-				paginatedResult.result = response.body;
-				if (response.headers.get('Pagination') !== null) {
-					paginatedResult.pagination = JSON.parse(response.headers.get('Pagination'));
-				}
-				return paginatedResult;
-			})
-		);
-	}
-
-	private getPaginationHeaders(pageNumber: number, pageSize: number) {
-		let params = new HttpParams();
-
-		params = params.append('pageNumber', pageNumber.toString());
-		params = params.append('pageSize', pageSize.toString());
-
-		return params;
+		return getPaginatedResult<Partial<Member[]>>(this.baseUrl + 'likes', params, this.http);
 	}
 }

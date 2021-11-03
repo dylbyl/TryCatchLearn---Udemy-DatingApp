@@ -27,6 +27,9 @@ namespace API.Entities
 
         //Look at UserLike.cs - a list of all users that the current user has LIKED (ie. this current user is the SourceUser)
         public ICollection<UserLike> LikedUsers { get; set; }
+
+        public ICollection<Message> MessagesSent { get; set; }
+        public ICollection<Message> MessagesReceived { get; set; }
     }
 
 }

@@ -31,10 +31,13 @@ namespace API.Controllers
 
             var user = _mapper.Map<AppUser>(registerDto);
 
+            //Creates a new instance of hmac (crypto service) with a random 'key'
             using var hmac = new HMACSHA512();
 
             user.UserName = registerDto.Username;
+            //Generates a hashed password using the user's actual password and the hmac 'key' (or 'salt')
             user.PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerDto.Password));
+            //Stores the 'key' as the 'salt,' so that the password can be reverse engineered. Don't send this to app!
             user.PasswordSalt = hmac.Key;
 
             _context.Users.Add(user);
@@ -59,12 +62,16 @@ namespace API.Controllers
 
             if (user == null) return Unauthorized("Invalid username");
 
+            //Creates a new hmac instance using the key/salt originally used to make the password hash
             using var hmac = new HMACSHA512(user.PasswordSalt);
 
+            //Uses this new hmac instance to make a hash of the password the user has entered
             var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
 
+            //Checks every character of the hashed password in the database and the hashed password made from the newly entered password
             for (int i = 0; i < computedHash.Length; i++)
             {
+                //if even one character in these hashes don't match, immediately say the password is invalid
                 if (computedHash[i] != user.PasswordHash[i]) return Unauthorized("Invalid password");
             }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -48,11 +49,36 @@ namespace API.Controllers
             return Ok(users);
         }
 
-        // api/users/3
+        //api/users/Edna
         [HttpGet("{username}", Name = "GetUser")]
         public async Task<ActionResult<MemberDTO>> GetUser(string username)
         {
             return await _userRepository.GetMemberAsync(username);
+        }
+
+		//api/users/dapper/Edna
+        [HttpGet("dapper/{username}", Name = "GetUserWithDapper")]
+        public async Task<ActionResult<MemberDTO>> GetUserWithDapper(string username)
+        {
+            return await _userRepository.GetMemberWithDapperAsync(username);
+        }
+
+		[HttpGet("dapper")]
+        public async Task<ActionResult<IEnumerable<MemberDTO>>> GetUsersWithDapper([FromQuery] UserParams userParams)
+        {
+            var user = await _userRepository.GetMemberWithDapperAsync(User.GetUsername());
+            userParams.CurrentUsername = user.UserName;
+
+            if (string.IsNullOrEmpty(userParams.Gender))
+            {
+                userParams.Gender = user.Gender == "male" ? "female" : "male";
+            }
+
+            var users = await _userRepository.GetMembersWithDapperAsync(userParams);
+
+            Response.AddPaginationHeader(users.CurrentPage, users.PageSize, users.TotalCount, users.TotalPages);
+
+            return Ok(users);
         }
 
         [HttpPut]
@@ -65,6 +91,14 @@ namespace API.Controllers
             _userRepository.Update(user);
 
             if (await _userRepository.SaveAllAsync()) return NoContent();
+
+            return BadRequest("Failed to update user");
+        }
+
+        [HttpPut("dapper")]
+        public async Task<ActionResult> UpdateUserWithDapper(MemberUpdateDTO memberUpdateDTO)
+        {
+            if (await _userRepository.UpdateMemberWithDapperAsync(memberUpdateDTO, User.GetUsername())) return NoContent();
 
             return BadRequest("Failed to update user");
         }
