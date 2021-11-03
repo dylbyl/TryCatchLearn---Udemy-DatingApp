@@ -36,36 +36,6 @@ namespace API.Data
                 .SingleOrDefaultAsync();
         }
 
-		public async Task<MemberDTO> GetMemberWithDapperAsync(string username)
-		{
-			using (var connection = new SqliteConnection(_connectionString)){
-				var lookup = new Dictionary<int, MemberDTO>();
-				// var sql = @"select * from Users users
-				// 	left join Photos photos on photos.AppUserId = users.Id";
-				var sql = @"select *
-				from Users
-					join Photos photos on photos.AppUserId = Users.Id
-					where LOWER(UserName) LIKE LOWER(@UserName)";
-				connection.Open();
-				var user = await connection.QueryAsync<AppUser, PhotoDTO, MemberDTO>(
-					sql, (user, photo) => {
-						MemberDTO memberDto;
-						if(!lookup.TryGetValue(user.Id, out memberDto)){
-							memberDto = _mapper.Map(user, memberDto);
-							lookup.Add(user.Id, memberDto);
-						}
-						if (memberDto.Photos == null) memberDto.Photos = new List<PhotoDTO>();
-						memberDto.Photos.Add(photo);
-						if (photo.IsMain) memberDto.PhotoURL = photo.URL;
-
-						return memberDto;
-					}, new { UserName = username });
-				//var resultListMultiple = lookup.Values.ToList();
-				var resultList = lookup.Values.FirstOrDefault();
-				return resultList;
-			}
-		}
-
 		public async Task<PagedList<MemberDTO>> GetMembersAsync(UserParams userParams)
         {
             var query = _context.Users.AsQueryable();
@@ -116,18 +86,47 @@ namespace API.Data
             _context.Entry(user).State = EntityState.Modified;
         }
 
+		
+		public async Task<MemberDTO> GetMemberWithDapperAsync(string username)
+		{
+			using (var connection = new SqliteConnection(_connectionString)){
+				var lookup = new Dictionary<int, MemberDTO>();
+				var sql = @"select *
+					from Users
+					join Photos photos on photos.AppUserId = Users.Id
+					where LOWER(UserName) LIKE LOWER(@UserName)";
+				connection.Open();
+				var user = await connection.QueryAsync<AppUser, PhotoDTO, MemberDTO>(
+					sql, (user, photo) => {
+						MemberDTO memberDto;
+						if(!lookup.TryGetValue(user.Id, out memberDto)){
+							memberDto = _mapper.Map(user, memberDto);
+							lookup.Add(user.Id, memberDto);
+						}
+						if (memberDto.Photos == null) memberDto.Photos = new List<PhotoDTO>();
+						memberDto.Photos.Add(photo);
+						if (photo.IsMain) memberDto.PhotoURL = photo.URL;
+
+						return memberDto;
+					}, new { UserName = username });
+				//var resultListMultiple = lookup.Values.ToList();
+				var resultList = lookup.Values.FirstOrDefault();
+				return resultList;
+			}
+		}
+
 		public async Task<bool> UpdateMemberWithDapperAsync(MemberUpdateDTO memberUpdateDTO, string username)
 		{
 			using (var connection = new SqliteConnection(_connectionString)){
 				var parameters = new DynamicParameters(memberUpdateDTO);
 				parameters.Add("UserName", username);
 				var sql = @"UPDATE Users
-				SET LookingFor = @LookingFor,
-				Introduction = @Introduction,
-				Interests = @Interests,
-				City = @City,
-				Country = @Country
-				WHERE LOWER(UserName) LIKE LOWER(@UserName)";
+					SET LookingFor = @LookingFor,
+					Introduction = @Introduction,
+					Interests = @Interests,
+					City = @City,
+					Country = @Country
+					WHERE LOWER(UserName) LIKE LOWER(@UserName)";
 				connection.Open();
 				var user = await connection.QueryAsync<MemberUpdateDTO>(sql, parameters);
 				return user.FirstOrDefault() == null;
@@ -143,19 +142,27 @@ namespace API.Data
 				var parameters = new DynamicParameters(new {
 					CurrentUsername = userParams.CurrentUsername,
 					Gender = userParams.Gender,
-					OrderBy = orderBy,
 					MinDob = minDob,
-					MaxDob = maxDob
+					MaxDob = maxDob,
+					Offset = (userParams.PageNumber - 1) * userParams.PageSize,
+					PageSize = userParams.PageSize
 				});
 				var lookup = new Dictionary<int, MemberDTO>();
-				var sql = @"select *
+				var sql = @$"select *
 					from Users
 					join Photos photos on photos.AppUserId = Users.Id
 					where UserName != @CurrentUsername
 					and Gender = @Gender
 					and DateOfBirth > @MinDob
 					and DateOfBirth < @MaxDob
-					ORDER BY @OrderBy DESC";
+					ORDER BY {orderBy} DESC
+					LIMIT @Offset, @PageSize";
+				var sqlCount = @$"select count(Id) AS TotalCount
+					from Users
+					where UserName != @CurrentUsername
+					and Gender = @Gender
+					and DateOfBirth > @MinDob
+					and DateOfBirth < @MaxDob";
 				connection.Open();
 				var user = await connection.QueryAsync<AppUser, PhotoDTO, MemberDTO>(
 					sql, (user, photo) => {
@@ -170,11 +177,11 @@ namespace API.Data
 
 						return memberDto;
 					}, parameters);
-				var resultList = lookup.Values.AsQueryable().AsNoTracking();
 
-				var count = resultList.Count();
-            	var items = resultList.Skip((userParams.PageNumber - 1) * userParams.PageSize).Take(userParams.PageSize).ToList();
-				return new PagedList<MemberDTO>(items, count, userParams.PageNumber, userParams.PageSize);
+				var count = await connection.QueryAsync(sqlCount, parameters);
+				var resultList = lookup.Values.ToList();
+
+				return new PagedList<MemberDTO>(resultList, (int)count.FirstOrDefault().TotalCount, userParams.PageNumber, userParams.PageSize);
 			}
 		}
 	}
