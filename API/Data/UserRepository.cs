@@ -178,10 +178,10 @@ namespace API.Data
 						return memberDto;
 					}, parameters);
 
-				var count = await connection.QueryAsync(sqlCount, parameters);
+				var count = await connection.ExecuteScalarAsync<int>(sqlCount, parameters);
 				var resultList = lookup.Values.ToList();
 
-				return new PagedList<MemberDTO>(resultList, (int)count.FirstOrDefault().TotalCount, userParams.PageNumber, userParams.PageSize);
+				return new PagedList<MemberDTO>(resultList, count, userParams.PageNumber, userParams.PageSize);
 			}
 		}
 	}
